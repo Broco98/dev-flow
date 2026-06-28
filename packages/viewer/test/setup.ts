@@ -36,4 +36,18 @@ function mockReactFlow() {
     ({ x: 0, y: 0, width: 0, height: 0 }) as DOMRect;
 }
 mockReactFlow();
+
+// React Flow's d3-zoom pane handler does `dragDisable(event.view)` -> reads
+// `view.document` on mousedown. In jsdom, @testing-library/user-event dispatches
+// mousedown with a null `view` (and jsdom locks `view` as a non-configurable own
+// property, so it can't be patched), so the pan/drag setup throws. That drag/pan
+// path is irrelevant in tests; node selection rides the separate `click` event.
+// Stop these view-less mousedowns in the capture phase, before d3's bubble handler.
+globalThis.document.addEventListener(
+  "mousedown",
+  (event) => {
+    if ((event as UIEvent).view == null) event.stopImmediatePropagation();
+  },
+  true,
+);
 afterEach(() => cleanup());
