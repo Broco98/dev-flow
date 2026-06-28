@@ -69,21 +69,22 @@ UML 없이 **드릴다운 가능한 인터랙티브 그래프**로 보여주는 
 
 ### 4.2 그래프 IR (JSON 스키마)
 
-언어 무관 보편 계약. `schemaVersion` 필드로 진화에 대비한다.
+언어 무관 보편 계약. `schemaVersion` 필드로 진화에 대비한다(semver 문자열 `"1.0.0"`).
 
-**노드**
+**노드** (kind별 판별 유니온)
 
 ```
 {
   "id": "string",              // 안정적 고유 식별자
-  "kind": "entrypoint" | "function" | "module" | "model",
+  "kind": "entrypoint" | "function" | "module" | "model" | "unresolved",
   "label": "string",           // 예: "GET /users", "createUser", "User"
   "sourceLocation": { "file": "string", "line": number },
   "parentId": "string | null", // 계층(드릴다운) 부모. 최상위는 null
-  "types": {                   // 선택. function 노드에서 사용
-    "inputs": ["string"],
-    "output": "string | null"
-  }
+
+  // entrypoint 전용: "method", "route"
+  // function 전용(선택): "signature": { "params": [{"name","typeText"}], "returnText": "string" }
+  // model 전용: "modelKind": "interface" | "class" | "typeAlias"
+  // unresolved: 동적/해석불가 호출 대상을 나타내는 자리표시 노드
 }
 ```
 
@@ -101,27 +102,33 @@ UML 없이 **드릴다운 가능한 인터랙티브 그래프**로 보여주는 
 }
 ```
 
-- `call` = 프로세스(제어 흐름): entrypoint→function, function→function
-- `contains` = 계층(드릴다운): module→function, module→module
+- `call` = 프로세스(제어 흐름): entrypoint→function, function→function, function→unresolved
+- `contains` = 계층(구조): module→function, module→module. Phase 1은 module→function만 생성
+  (module→module 중첩 그룹화는 스키마는 허용하되 추후 단계로 미룸).
 - `dataTouch` = 데이터 흐름: function→model (read/write 방향 + 타입)
 
 **최상위 문서**
 
 ```
 {
-  "schemaVersion": 1,
+  "schemaVersion": "1.0.0",
   "language": "typescript",
   "nodes": [ ... ],
-  "edges": [ ... ]
+  "edges": [ ... ],
+  "warnings": ["string"]       // 건너뛴 파일·해석 실패 등 누적 경고 (없으면 빈 배열)
 }
 ```
 
 ### 4.3 뷰어 (웹 앱)
 
 - IR JSON 로드 → **최상위엔 진입점(entrypoint) 노드만** 표시 (크게 보기).
-- 노드 클릭 → `contains` 엣지로 연결된 자식(함수/모듈)을 **펼치기** (semantic zoom / 드릴다운).
-- 함수 노드엔 입력·반환 타입을 표시, `model` 노드와 `dataTouch` 엣지로 데이터 흐름 시각화.
-- 노드 선택 시 소스 위치(`file:line`)를 표시한다. (실제 파일 점프는 Phase 2에서 Tauri로 구현)
+- 노드 클릭 → **`call`(프로세스) 엣지로 연결된 자식(호출 대상 함수/unresolved)과 `dataTouch`로
+  연결된 모델**을 **펼치기** (semantic zoom / 드릴다운). 사용자가 원한 "내부 함수·모듈 호출
+  펼치기"는 호출(call) 흐름이므로 드릴다운은 call 엣지를 따른다. `contains` 엣지는 구조적
+  소속(parentId) 정보로 보관하되, 시각적 모듈 그룹화는 추후 단계로 미룬다.
+- 함수 노드엔 입력·반환 타입(signature)을 표시, `model` 노드와 `dataTouch` 엣지로 데이터 흐름 시각화.
+- 노드 선택 시 **상세 패널**에 소스 위치(`file:line`)·종류·시그니처를 표시한다. (실제 파일 점프는
+  Phase 2에서 Tauri로 구현)
 
 ## 5. 데이터 흐름 수준 (Phase 1)
 
@@ -133,9 +140,11 @@ UML 없이 **드릴다운 가능한 인터랙티브 그래프**로 보여주는 
 
 ## 6. 오류 처리
 
-- 호출 대상 해석 실패(동적 호출, 외부 라이브러리 등): `unresolved` 처리, 분석 중단하지 않음.
-- 파싱 불가 파일: 건너뛰고 경고를 누적해 IR 또는 stderr로 보고.
-- 빈/무진입점 프로젝트: 유효한 빈 IR(`nodes: []`)을 출력.
+- 호출 대상 해석 실패: 외부 라이브러리/lib(node_modules·`.d.ts`)로 해석되는 호출은 **건너뛴다**.
+  반면 truly 동적(심볼·시그니처 모두 해석 불가)인 호출은 `unresolved` 노드 + `call` 엣지로 표시하고
+  분석을 중단하지 않는다.
+- 파싱 불가/처리 실패 파일: 건너뛰고 경고를 `GraphIR.warnings[]`에 누적한다.
+- 빈/무진입점 프로젝트: 유효한 빈 IR(`nodes: []`, `edges: []`)을 출력.
 
 ## 7. 테스트 전략
 
@@ -164,9 +173,22 @@ IR이 계약이므로 분석기와 뷰어를 완전히 분리해 테스트한다
 - Express 외 프레임워크 진입점
 - 실시간 파일 워칭/증분 분석
 
-## 9. 미해결/추후 결정 (구현 계획 단계에서 확정)
+## 9. 확정된 기술 스택 (구현 계획 단계에서 결정)
 
-- 구체 기술 선택: 그래프 라이브러리(React Flow vs Cytoscape), 분석기 패키징(단일 레포 vs 워크스페이스),
-  IR 검증 도구(zod vs JSON Schema).
-- 노드 `id` 생성 규칙(파일 경로 + 심볼명 기반 등)의 정확한 포맷.
-- 모델/DB 엔티티 탐지 휴리스틱의 구체 규칙(ORM 인식 범위 등).
+- **패키지 매니저/런타임**: bun (워크스페이스 + catalog로 버전 단일화, `linker="isolated"`로
+  "ir은 zod에만 의존" 경계를 install 단계에서 강제, analyzer는 `bun run`으로 TS 네이티브 실행).
+  Vite/Vitest는 node shebang을 통해 Node에서 실행.
+- **모노레포 구조**: `packages/ir` · `packages/analyzer` · `packages/viewer` 3패키지. ir는
+  exports→TS 소스(Model A, 빌드 단계 없음, `moduleResolution: bundler`).
+- **IR 검증**: zod 4 (판별 유니온 + `z.infer`로 타입 단일 출처).
+- **분석기**: ts-morph 28.
+- **그래프 라이브러리**: @xyflow/react 12 (React Flow). 커스텀 노드 + 드릴다운에 적합.
+- **뷰어 UI**: React 19 + Tailwind CSS v4 + shadcn/ui(상세 패널·버튼) + lucide-react(아이콘) +
+  zustand 5(선택/펼침/패널 상태). RF 노드/엣지는 IR + 펼침 상태에서 파생(derived).
+- **테스트**: Vitest 4 (`test.projects`).
+
+### 추후 단계로 미룬 결정
+
+- 노드 `id` 생성 규칙은 구현 계획의 `ids.ts`에서 확정(파일 경로 posix-상대 + 심볼명).
+- 모델/DB 엔티티 탐지 휴리스틱 확장(TypeORM `@Entity`, Prisma 호출 패턴 등) — Phase 1은
+  반환 타입↔모델 연결만, ORM 인식은 추후.
