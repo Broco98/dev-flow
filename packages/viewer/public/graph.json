@@ -1,0 +1,20 @@
+{
+  "schemaVersion": "1.0.0",
+  "language": "typescript",
+  "warnings": [],
+  "nodes": [
+    { "kind": "entrypoint", "id": "ep:GET /users", "label": "GET /users", "sourceLocation": { "file": "src/app.ts", "line": 5 }, "parentId": null, "method": "GET", "route": "/users" },
+    { "kind": "module", "id": "module:src/app.ts", "label": "app.ts", "sourceLocation": { "file": "src/app.ts", "line": 1 }, "parentId": null },
+    { "kind": "module", "id": "module:src/users.ts", "label": "users.ts", "sourceLocation": { "file": "src/users.ts", "line": 1 }, "parentId": null },
+    { "kind": "function", "id": "fn:src/users.ts#getUsers", "label": "getUsers", "sourceLocation": { "file": "src/users.ts", "line": 12 }, "parentId": "module:src/users.ts", "signature": { "params": [{ "name": "_req", "typeText": "Request" }, { "name": "res", "typeText": "Response" }], "returnText": "void" } },
+    { "kind": "function", "id": "fn:src/users.ts#listUsers", "label": "listUsers", "sourceLocation": { "file": "src/users.ts", "line": 8 }, "parentId": "module:src/users.ts", "signature": { "params": [], "returnText": "User[]" } },
+    { "kind": "model", "id": "model:src/users.ts#User", "label": "User", "sourceLocation": { "file": "src/users.ts", "line": 3 }, "parentId": null, "modelKind": "interface" }
+  ],
+  "edges": [
+    { "source": "module:src/users.ts", "target": "fn:src/users.ts#getUsers", "kind": "contains" },
+    { "source": "module:src/users.ts", "target": "fn:src/users.ts#listUsers", "kind": "contains" },
+    { "source": "ep:GET /users", "target": "fn:src/users.ts#getUsers", "kind": "call" },
+    { "source": "fn:src/users.ts#getUsers", "target": "fn:src/users.ts#listUsers", "kind": "call" },
+    { "source": "fn:src/users.ts#listUsers", "target": "model:src/users.ts#User", "kind": "dataTouch", "meta": { "access": "read", "dataType": "User" } }
+  ]
+}
