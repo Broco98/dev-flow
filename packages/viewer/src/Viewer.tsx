@@ -6,6 +6,7 @@ import { safeParseGraphIR, type GraphIR } from "@dev-flow/ir";
 import { buildVisibleGraph } from "./ir-graph";
 import { nodeTypes } from "./nodes";
 import { useGraphUi } from "./state/uiStore";
+import { DetailPanel } from "./DetailPanel";
 
 export function Viewer({ ir }: { ir: unknown }) {
   const parsed = useMemo(() => safeParseGraphIR(ir), [ir]);
@@ -37,7 +38,7 @@ function FlowInner({ ir }: { ir: GraphIR }) {
 
   return (
     <ReactFlowProvider>
-      <div style={{ width: "100%", height: "100%" }}>
+      <div style={{ width: "100%", height: "100%", position: "relative" }}>
         <ReactFlow
           nodes={nodes}
           edges={edges}
@@ -49,6 +50,9 @@ function FlowInner({ ir }: { ir: GraphIR }) {
           <Background />
           <Controls />
         </ReactFlow>
+        <div style={{ position: "absolute", top: 12, right: 12 }}>
+          <DetailPanel ir={ir} />
+        </div>
       </div>
     </ReactFlowProvider>
   );

@@ -77,7 +77,10 @@ export function buildVisibleGraph(
       id: `e${i}:${e.kind}:${e.source}->${e.target}`,
       source: e.source,
       target: e.target,
-      label: e.kind === "dataTouch" ? (e.meta?.dataType ?? "data") : undefined,
+      label:
+        e.kind === "dataTouch"
+          ? `${e.meta?.access ?? "data"} ${e.meta?.dataType ?? ""}`.trim()
+          : undefined,
     }));
   return { nodes, edges };
 }
