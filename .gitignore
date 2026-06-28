@@ -1,0 +1,12 @@
+# OMC operational artifacts
+.omc/
+
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+build/
+
+# OS / editor
+.DS_Store
