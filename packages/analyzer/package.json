@@ -1,0 +1,23 @@
+{
+  "name": "@dev-flow/analyzer",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": { "dev-flow-analyze": "./src/cli.ts" },
+  "scripts": {
+    "start": "bun run src/cli.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@dev-flow/ir": "workspace:*",
+    "ts-morph": "catalog:"
+  },
+  "devDependencies": {
+    "@types/node": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:",
+    "express": "5.2.1",
+    "@types/express": "5.0.6"
+  }
+}
